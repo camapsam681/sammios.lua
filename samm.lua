@@ -1,11 +1,10 @@
 -- ===================================================
--- BOT SAMM.NET - KEY CHẶT + IB SAMM TỰ ĐỘNG
+-- SAMM.NET - FULL SCRIPT (XÓA MENU V1)
 -- ===================================================
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
--- Xóa GUI cũ
 local oldGui = LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("HackerChatBot")
 if oldGui then oldGui:Destroy() end
 
@@ -13,10 +12,6 @@ local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "HackerChatBot"
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 ScreenGui.ResetOnSpawn = false
-
-local ButtonFolder = Instance.new("Folder")
-ButtonFolder.Name = "ButtonFolder"
-ButtonFolder.Parent = ScreenGui
 
 local espFolder = Instance.new("Folder")
 espFolder.Name = "ESP_Folder"
@@ -39,6 +34,7 @@ local isXuyenTuongOn = false
 local isDVOn = false
 local flySpeed = 8
 local homePosition = nil
+local isStealing = false
 
 -- ===================================================
 -- LƯU/ĐỌC KEY
@@ -67,16 +63,12 @@ local function deleteKeyFile()
     end)
 end
 
--- Lưu Key đã hết hạn
 local function saveExpiredKey(key)
     pcall(function()
-        if appendfile then
-            appendfile("samm_expired.txt", key .. "\n")
-        end
+        if appendfile then appendfile("samm_expired.txt", key .. "\n") end
     end)
 end
 
--- Kiểm tra Key đã hết hạn trước đó chưa
 local function isKeyExpiredBefore(key)
     local success, data = pcall(function()
         if readfile and isfile and isfile("samm_expired.txt") then return readfile("samm_expired.txt") end
@@ -114,18 +106,16 @@ local function formatTime(seconds)
 end
 
 -- ===================================================
--- KÍCH HOẠT KEY (CHẶT CHẼ)
+-- KÍCH HOẠT KEY
 -- ===================================================
 local function activateKey(key, expireTime)
     local info = parseKey(key)
     if not info then return false, "Key không hợp lệ!" end
     
-    -- Kiểm tra Key đã hết hạn trước đó
     if isKeyExpiredBefore(key) then
         return false, "Key này đã hết hạn, không thể kích hoạt lại!"
     end
     
-    -- Nếu có expireTime cũ, kiểm tra còn hạn không
     if expireTime and expireTime > 0 and expireTime <= tick() then
         saveExpiredKey(key)
         return false, "Key này đã hết hạn, không thể kích hoạt lại!"
@@ -144,10 +134,8 @@ local function activateKey(key, expireTime)
         saveKeyToFile(key, keyExpireTime)
     end
     
-    -- Hủy kết nối cũ
     if keyTimerConnection then keyTimerConnection:Disconnect() end
     
-    -- Đếm ngược Key
     keyTimerConnection = game:GetService("RunService").Heartbeat:Connect(function()
         if not isActivated then return end
         if keyExpireTime then
@@ -166,7 +154,6 @@ local function activateKey(key, expireTime)
         end
     end)
     
-    -- Thông báo định kỳ
     task.spawn(function()
         while isActivated do
             local interval = 300
@@ -226,31 +213,47 @@ local function log(msg, color, isBot)
     LogFrame.CanvasPosition = Vector2.new(0, LogFrame.AbsoluteCanvasSize.Y)
 end
 
-local function botReply(msg, color)
+function botReply(msg, color)
     log("[BOT SAMM.NET] " .. msg, color or Color3.fromRGB(255, 50, 50), true)
 end
 
 -- ===================================================
--- CÁC HÀM CHỨC NĂNG
+-- HÀM KHÔI PHỤC
 -- ===================================================
-
-local function setNoclip(state)
+local function restoreCollision()
     local char = LocalPlayer.Character
     if not char then return end
     for _, part in pairs(char:GetDescendants()) do
-        if part:IsA("BasePart") then part.CanCollide = not state end
+        if part:IsA("BasePart") then part.CanCollide = true end
     end
 end
 
+local function clearESP()
+    for _, c in pairs(espFolder:GetChildren()) do c:Destroy() end
+end
+
+local function clearDV()
+    for _, c in pairs(dvFolder:GetChildren()) do c:Destroy() end
+    for _, p in pairs(Players:GetPlayers()) do
+        if p.Character then
+            for _, part in pairs(p.Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    pcall(function() part.Material = Enum.Material.Plastic end)
+                end
+            end
+        end
+    end
+end
+
+-- ===================================================
+-- CHỨC NĂNG
+-- ===================================================
 local function startFPS()
     task.spawn(function()
         while isFPSOn do
             local hue = (tick() * 0.5) % 1
             local F = ScreenGui:FindFirstChild("FPSLabel")
-            if F then
-                F.Text = "FPS: 120"
-                F.TextColor3 = Color3.fromHSV(hue, 1, 1)
-            end
+            if F then F.Text = "FPS: 120" F.TextColor3 = Color3.fromHSV(hue, 1, 1) end
             task.wait(0.05)
         end
     end)
@@ -260,7 +263,7 @@ local function startESP()
     task.spawn(function()
         while isESPOn do
             task.wait(0.5)
-            for _, c in pairs(espFolder:GetChildren()) do c:Destroy() end
+            clearESP()
             if isESPOn then
                 for _, obj in pairs(game.Workspace:GetDescendants()) do
                     if obj:IsA("Model") or obj:IsA("BasePart") then
@@ -298,10 +301,7 @@ local function startAnti()
         while isAntiOn do
             local hue = (tick() * 0.5) % 1
             local A = ScreenGui:FindFirstChild("AntiLabel")
-            if A then
-                A.Text = "ANTI-CHEAT 👑"
-                A.TextColor3 = Color3.fromHSV(hue, 1, 1)
-            end
+            if A then A.Text = "ANTI-CHEAT 👑" A.TextColor3 = Color3.fromHSV(hue, 1, 1) end
             task.wait(0.05)
         end
     end)
@@ -311,7 +311,12 @@ local function startNoclip()
     task.spawn(function()
         while isNoclipOn do
             task.wait(0.1)
-            setNoclip(true)
+            local char = LocalPlayer.Character
+            if char then
+                for _, part in pairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then part.CanCollide = false end
+                end
+            end
         end
     end)
 end
@@ -322,7 +327,9 @@ local function startNoclip2()
             task.wait(0.1)
             local char = LocalPlayer.Character
             if char then
-                setNoclip(true)
+                for _, part in pairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then part.CanCollide = false end
+                end
                 local root = char:FindFirstChild("HumanoidRootPart")
                 if root then
                     for _, obj in pairs(game.Workspace:GetDescendants()) do
@@ -340,7 +347,12 @@ local function startXuyenTuong()
     task.spawn(function()
         while isXuyenTuongOn do
             task.wait(0.1)
-            setNoclip(true)
+            local char = LocalPlayer.Character
+            if char then
+                for _, part in pairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then part.CanCollide = false end
+                end
+            end
         end
     end)
 end
@@ -351,7 +363,7 @@ local function startDV()
         while isDVOn do
             task.wait(0.1)
             hue = (hue + 0.03) % 1
-            for _, c in pairs(dvFolder:GetChildren()) do c:Destroy() end
+            clearDV()
             local lc = LocalPlayer.Character
             for _, p in pairs(Players:GetPlayers()) do
                 if p ~= LocalPlayer then
@@ -396,7 +408,6 @@ local function startBay()
                 if char then
                     local root = char:FindFirstChild("HumanoidRootPart")
                     if root and homePosition then
-                        setNoclip(true)
                         local t = 0
                         while isBayOn and t < 20 do
                             if root and root.Parent then
@@ -407,7 +418,6 @@ local function startBay()
                             end
                             t = t + task.wait(0.03)
                         end
-                        setNoclip(false)
                     end
                 end
             end
@@ -416,85 +426,281 @@ local function startBay()
 end
 
 -- ===================================================
--- TẠO NÚT BẬT/TẮT
+-- LẤY GIÁ TRỊ TRỨNG (LOẠI TRỪ MÁY HỢP NHẤT)
 -- ===================================================
-local function createToggleButton(name)
-    for _, child in pairs(ButtonFolder:GetChildren()) do
-        if child.Name == name then child:Destroy() end
-    end
-    local btn = Instance.new("TextButton")
-    btn.Name = name
-    btn.Parent = ButtonFolder
-    btn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    btn.BorderSizePixel = 0
-    btn.Size = UDim2.new(0, 120, 0, 28)
-    btn.Text = "BẬT " .. name
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.TextScaled = true
-    btn.Font = Enum.Font.Code
-    btn.Active = true
-    btn.Draggable = true
-    local count = #ButtonFolder:GetChildren()
-    btn.Position = UDim2.new(0, 10, 0, 260 + (count - 1) * 32)
-    local corner = Instance.new("UICorner", btn)
-    corner.CornerRadius = UDim.new(0, 8)
-    local stroke = Instance.new("UIStroke", btn)
-    stroke.Thickness = 2
-    task.spawn(function()
-        local hue = 0
-        while btn.Parent do
-            hue = (hue + 0.01) % 1
-            local color = Color3.fromHSV(hue, 1, 1)
-            btn.TextColor3 = color
-            stroke.Color = color
-            task.wait(0.05)
+local function getEggValue(obj)
+    local value = 0
+    for _, child in pairs(obj:GetDescendants()) do
+        if child:IsA("NumberValue") or child:IsA("IntValue") then
+            local n = child.Name:lower()
+            if n:find("price") or n:find("cost") or n:find("value") or n:find("money") or n:find("income") or n:find("rate") then
+                value = math.max(value, child.Value)
+            end
         end
-    end)
-    btn.MouseButton1Click:Connect(function()
-        local state = not btn:GetAttribute("Active")
-        btn:SetAttribute("Active", state)
-        if name == "FPS" then
-            isFPSOn = state; btn.Text = state and "TẮT FPS" or "BẬT FPS"
-            local F = ScreenGui:FindFirstChild("FPSLabel")
-            if F then F.Visible = state end
-            if state then startFPS() end
-        elseif name == "ESP" then
-            isESPOn = state; btn.Text = state and "TẮT ESP" or "BẬT ESP"
-            if state then startESP() end
-        elseif name == "ANTI" then
-            isAntiOn = state; btn.Text = state and "TẮT ANTI" or "BẬT ANTI"
-            local A = ScreenGui:FindFirstChild("AntiLabel")
-            if A then A.Visible = state end
-            if state then startAnti() end
-        elseif name == "NOCLIP" then
-            isNoclipOn = state; btn.Text = state and "TẮT NOCLIP" or "BẬT NOCLIP"
-            if state then startNoclip() else setNoclip(false) end
-        elseif name == "NOCLIP 2" then
-            isNoclip2On = state; btn.Text = state and "TẮT NOCLIP 2" or "BẬT NOCLIP 2"
-            if state then startNoclip2() else setNoclip(false) end
-        elseif name == "XUYÊN TƯỜNG" then
-            isXuyenTuongOn = state; btn.Text = state and "TẮT XUYÊN TƯỜNG" or "BẬT XUYÊN TƯỜNG"
-            if state then startXuyenTuong() else setNoclip(false) end
-        elseif name == "ĐỊNH VỊ" then
-            isDVOn = state; btn.Text = state and "TẮT ĐỊNH VỊ" or "BẬT ĐỊNH VỊ"
-            if state then startDV() else
-                for _, c in pairs(dvFolder:GetChildren()) do c:Destroy() end
-                for _, p in pairs(Players:GetPlayers()) do
-                    if p.Character then
-                        for _, part in pairs(p.Character:GetDescendants()) do
-                            if part:IsA("BasePart") then
-                                pcall(function() part.Material = Enum.Material.Plastic end)
-                            end
+    end
+    return value
+end
+
+local function findBestEgg()
+    local best = nil
+    local bestValue = -1
+    local keywords = {"egg", "trung", "trứng", "trex", "dragon", "rong", "phoenix", "phuong", "balrog", "brainrot", "pet", "scorpion", "gorilla", "yeti", "shark", "tiger", "chim", "cuu", "khi", "luoi"}
+    local exclude = {"may", "machine", "hop", "nhat", "craft", "shop", "ban", "sell", "base", "pedestal", "stand", "display", "spawner", "npc", "gate", "door", "guard", "volcano"}
+    for _, obj in pairs(game.Workspace:GetDescendants()) do
+        if obj:IsA("Model") or obj:IsA("BasePart") then
+            local name = obj.Name:lower()
+            local shouldSkip = false
+            for _, ex in pairs(exclude) do
+                if name:find(ex) then shouldSkip = true break end
+            end
+            if not shouldSkip then
+                for _, kw in pairs(keywords) do
+                    if name:find(kw) then
+                        local primary = nil
+                        if obj:IsA("Model") then primary = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+                        else primary = obj end
+                        if primary then
+                            local v = getEggValue(obj)
+                            if v > bestValue then bestValue = v best = obj end
                         end
+                        break
                     end
                 end
             end
+        end
+    end
+    return best, bestValue
+end
+
+-- ===================================================
+-- HÀM STEAL
+-- ===================================================
+local function stealEgg()
+    if isStealing then return end
+    isStealing = true
+    local char = LocalPlayer.Character
+    if not char then isStealing = false return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then isStealing = false return end
+    
+    botReply("Finding best egg...", Color3.fromRGB(255, 255, 0))
+    local target, value = findBestEgg()
+    if not target then
+        botReply("No egg found!", Color3.fromRGB(255, 100, 100))
+        isStealing = false
+        return
+    end
+    
+    local targetPos = nil
+    if target:IsA("BasePart") then targetPos = target.Position
+    elseif target:IsA("Model") then
+        local primary = target.PrimaryPart or target:FindFirstChildWhichIsA("BasePart")
+        if primary then targetPos = primary.Position end
+    end
+    
+    if not targetPos then
+        botReply("Cannot get position!", Color3.fromRGB(255, 100, 100))
+        isStealing = false
+        return
+    end
+    
+    botReply("Going to: " .. target.Name, Color3.fromRGB(0, 255, 0))
+    
+    local startTime = tick()
+    while tick() - startTime < 5 do
+        if not root or not root.Parent then break end
+        local highY = targetPos.Y + 80
+        local diff = highY - root.Position.Y
+        if math.abs(diff) < 5 then break end
+        root.CFrame = CFrame.new(root.Position + Vector3.new(0, math.min(10, diff), 0))
+        task.wait(0.03)
+    end
+    
+    startTime = tick()
+    while tick() - startTime < 15 do
+        if not root or not root.Parent then break end
+        local targetVec = Vector3.new(targetPos.X, root.Position.Y, targetPos.Z)
+        local dir = targetVec - root.Position
+        if dir.Magnitude < 5 then break end
+        root.CFrame = CFrame.new(root.Position + dir.Unit * 10)
+        task.wait(0.03)
+    end
+    
+    local targetY = targetPos.Y + 5
+    startTime = tick()
+    while tick() - startTime < 10 do
+        if not root or not root.Parent then break end
+        local diff = root.Position.Y - targetY
+        if math.abs(diff) < 2 then break end
+        root.CFrame = CFrame.new(root.Position - Vector3.new(0, math.min(2, math.abs(diff)), 0))
+        task.wait(0.05)
+    end
+    
+    botReply("Stealing...", Color3.fromRGB(0, 200, 255))
+    for _, d in pairs(game.Workspace:GetDescendants()) do
+        if d:IsA("ProximityPrompt") and d.Parent then
+            local pPos = d.Parent:IsA("BasePart") and d.Parent.Position or nil
+            if pPos and (pPos - root.Position).Magnitude < 15 then fireproximityprompt(d) break end
+        end
+        if d:IsA("ClickDetector") and d.Parent then
+            local pPos = d.Parent:IsA("BasePart") and d.Parent.Position or nil
+            if pPos and (pPos - root.Position).Magnitude < 15 then fireclickdetector(d) break end
+        end
+    end
+    
+    botReply("Stole! Going home...", Color3.fromRGB(0, 255, 0))
+    if homePosition then
+        startTime = tick()
+        while tick() - startTime < 20 do
+            if not root or not root.Parent then break end
+            local targetVec = Vector3.new(homePosition.X, root.Position.Y, homePosition.Z)
+            local dir = targetVec - root.Position
+            if dir.Magnitude < 5 then break end
+            root.CFrame = CFrame.new(root.Position + dir.Unit * 10)
+            task.wait(0.03)
+        end
+        botReply("Home!", Color3.fromRGB(0, 255, 0))
+    end
+    isStealing = false
+end
+
+-- ===================================================
+-- TẠO MENU CHỨC NĂNG (/menu)
+-- ===================================================
+local FuncMenu = Instance.new("Frame")
+FuncMenu.Name = "FuncMenu"
+FuncMenu.Parent = ScreenGui
+FuncMenu.BackgroundColor3 = Color3.fromRGB(15, 15, 30)
+FuncMenu.Position = UDim2.new(0.5, -170, 0.5, -200)
+FuncMenu.Size = UDim2.new(0, 340, 0, 380)
+FuncMenu.Visible = false
+FuncMenu.Active = true
+FuncMenu.Draggable = true
+FuncMenu.BorderSizePixel = 0
+local FuncCorner = Instance.new("UICorner", FuncMenu)
+FuncCorner.CornerRadius = UDim.new(0, 16)
+local FuncStroke = Instance.new("UIStroke", FuncMenu)
+FuncStroke.Color = Color3.fromRGB(0, 255, 150)
+FuncStroke.Thickness = 2
+
+task.spawn(function()
+    local hue = 0
+    while FuncMenu.Parent do
+        hue = (hue + 0.01) % 1
+        FuncStroke.Color = Color3.fromHSV(hue, 1, 1)
+        task.wait(0.05)
+    end
+end)
+
+local FuncHeader = Instance.new("Frame")
+FuncHeader.Parent = FuncMenu
+FuncHeader.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+FuncHeader.BackgroundTransparency = 0.3
+FuncHeader.Size = UDim2.new(1, 0, 0, 40)
+local FuncHeaderCorner = Instance.new("UICorner", FuncHeader)
+FuncHeaderCorner.CornerRadius = UDim.new(0, 16)
+
+local FuncTitle = Instance.new("TextLabel")
+FuncTitle.Parent = FuncHeader
+FuncTitle.BackgroundTransparency = 1
+FuncTitle.Position = UDim2.new(0, 15, 0, 0)
+FuncTitle.Size = UDim2.new(1, -60, 1, 0)
+FuncTitle.Text = "⚡ SAMM.NET MENU ⚡"
+FuncTitle.TextColor3 = Color3.fromRGB(0, 255, 150)
+FuncTitle.TextScaled = true
+FuncTitle.Font = Enum.Font.GothamBold
+FuncTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+task.spawn(function()
+    local hue = 0
+    while FuncTitle.Parent do
+        hue = (hue + 0.02) % 1
+        FuncTitle.TextColor3 = Color3.fromHSV(hue, 1, 1)
+        task.wait(0.05)
+    end
+end)
+
+local FuncClose = Instance.new("TextButton")
+FuncClose.Parent = FuncHeader
+FuncClose.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+FuncClose.BorderSizePixel = 0
+FuncClose.Position = UDim2.new(1, -35, 0, 7)
+FuncClose.Size = UDim2.new(0, 25, 0, 25)
+FuncClose.Text = "X"
+FuncClose.TextColor3 = Color3.fromRGB(255, 255, 255)
+FuncClose.TextScaled = true
+FuncClose.Font = Enum.Font.GothamBold
+local FuncCloseCorner = Instance.new("UICorner", FuncClose)
+FuncCloseCorner.CornerRadius = UDim.new(0, 8)
+FuncClose.MouseButton1Click:Connect(function() FuncMenu.Visible = false end)
+
+local function createFuncButton(name, xPos, yPos)
+    local btn = Instance.new("TextButton")
+    btn.Parent = FuncMenu
+    btn.BackgroundColor3 = Color3.fromRGB(25, 25, 45)
+    btn.BorderSizePixel = 0
+    btn.Position = UDim2.new(xPos, 0, 0, yPos)
+    btn.Size = UDim2.new(0.44, 0, 0, 35)
+    btn.Text = "BẬT " .. name
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextScaled = true
+    btn.Font = Enum.Font.GothamBold
+    btn.Active = true
+    local corner = Instance.new("UICorner", btn)
+    corner.CornerRadius = UDim.new(0, 8)
+    local stroke = Instance.new("UIStroke", btn)
+    stroke.Color = Color3.fromRGB(0, 255, 150)
+    stroke.Thickness = 1
+    
+    btn.MouseButton1Click:Connect(function()
+        if name == "FPS" then
+            isFPSOn = not isFPSOn
+            local F = ScreenGui:FindFirstChild("FPSLabel")
+            if F then F.Visible = isFPSOn end
+            if isFPSOn then startFPS() end
+            btn.Text = isFPSOn and "TẮT FPS" or "BẬT FPS"
+        elseif name == "ESP" then
+            isESPOn = not isESPOn
+            if isESPOn then startESP() else clearESP() end
+            btn.Text = isESPOn and "TẮT ESP" or "BẬT ESP"
+        elseif name == "ANTI" then
+            isAntiOn = not isAntiOn
+            local A = ScreenGui:FindFirstChild("AntiLabel")
+            if A then A.Visible = isAntiOn end
+            if isAntiOn then startAnti() end
+            btn.Text = isAntiOn and "TẮT ANTI" or "BẬT ANTI"
+        elseif name == "NOCLIP" then
+            isNoclipOn = not isNoclipOn
+            if isNoclipOn then startNoclip() else restoreCollision() end
+            btn.Text = isNoclipOn and "TẮT NOCLIP" or "BẬT NOCLIP"
+        elseif name == "NOCLIP 2" then
+            isNoclip2On = not isNoclip2On
+            if isNoclip2On then startNoclip2() else restoreCollision() end
+            btn.Text = isNoclip2On and "TẮT NOCLIP 2" or "BẬT NOCLIP 2"
+        elseif name == "XUYÊN TƯỜNG" then
+            isXuyenTuongOn = not isXuyenTuongOn
+            if isXuyenTuongOn then startXuyenTuong() else restoreCollision() end
+            btn.Text = isXuyenTuongOn and "TẮT XUYÊN TƯỜNG" or "BẬT XUYÊN TƯỜNG"
+        elseif name == "ĐỊNH VỊ" then
+            isDVOn = not isDVOn
+            if isDVOn then startDV() else clearDV() end
+            btn.Text = isDVOn and "TẮT ĐỊNH VỊ" or "BẬT ĐỊNH VỊ"
         elseif name == "BAY" then
-            isBayOn = state; btn.Text = state and "TẮT BAY" or "BẬT BAY"
-            if state then startBay() end
+            isBayOn = not isBayOn
+            if isBayOn then startBay() end
+            btn.Text = isBayOn and "TẮT BAY" or "BẬT BAY"
         end
     end)
 end
+
+createFuncButton("FPS", 0.04, 55)
+createFuncButton("ESP", 0.52, 55)
+createFuncButton("ANTI", 0.04, 95)
+createFuncButton("NOCLIP", 0.52, 95)
+createFuncButton("NOCLIP 2", 0.04, 135)
+createFuncButton("XUYÊN TƯỜNG", 0.52, 135)
+createFuncButton("ĐỊNH VỊ", 0.04, 175)
+createFuncButton("BAY", 0.52, 175)
 
 -- ===================================================
 -- XỬ LÝ LỆNH
@@ -503,33 +709,21 @@ local function processCommand(input)
     local msg = input:lower():gsub("^%s+", ""):gsub("%s+$", "")
     if msg == "" then return end
     log("[BẠN] " .. input, Color3.fromRGB(0, 255, 0))
-    local cmd = msg:match("^(/%S+)")
-    if not cmd then botReply("Lệnh phải bắt đầu bằng '/'!", Color3.fromRGB(255, 50, 50)) return end
-
-    if cmd == "/help" then
-        botReply("Lệnh: /dv /anti /noclip /noclip2 /fyy /xuyentuong /esp /fps")
-    elseif cmd == "/dv" then createToggleButton("ĐỊNH VỊ") botReply("Đã tạo nút ĐỊNH VỊ!")
-    elseif cmd == "/anti" then createToggleButton("ANTI") botReply("Đã tạo nút ANTI!")
-    elseif cmd == "/noclip" then createToggleButton("NOCLIP") botReply("Đã tạo nút NOCLIP!")
-    elseif cmd == "/noclip2" then createToggleButton("NOCLIP 2") botReply("Đã tạo nút NOCLIP 2!")
-    elseif cmd == "/fyy" then createToggleButton("BAY") botReply("Đã tạo nút BAY!")
-    elseif cmd == "/xuyentuong" then createToggleButton("XUYÊN TƯỜNG") botReply("Đã tạo nút XUYÊN TƯỜNG!")
-    elseif cmd == "/esp" then createToggleButton("ESP") botReply("Đã tạo nút ESP!")
-    elseif cmd == "/fps" then createToggleButton("FPS") botReply("Đã tạo nút FPS!")
-    elseif cmd == "/reset" then
-        local c = LocalPlayer.Character
-        if c and c:FindFirstChild("HumanoidRootPart") and homePosition then
-            c.HumanoidRootPart.CFrame = CFrame.new(homePosition)
-            botReply("Đã reset!")
-        end
-    else botReply("Lệnh không hợp lệ! Gõ /help.", Color3.fromRGB(255, 50, 50)) end
+    if msg == "/menu" then
+        FuncMenu.Visible = not FuncMenu.Visible
+        botReply(FuncMenu.Visible and "Đã MỞ MENU!" or "Đã ĐÓNG MENU!", Color3.fromRGB(0, 200, 255))
+    elseif msg == "/steal" then
+        stealEgg()
+    elseif msg == "/help" then
+        botReply("Lệnh: /menu /steal")
+    else
+        botReply("Lệnh không hợp lệ! Gõ /help.", Color3.fromRGB(255, 50, 50))
+    end
 end
 
 -- ===================================================
--- TẠO GIAO DIỆN
+-- NÚT SAMM.NET
 -- ===================================================
-
--- Nút SAMM.NET
 local Btn = Instance.new("TextButton")
 Btn.Parent = ScreenGui
 Btn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
@@ -548,7 +742,9 @@ local S1 = Instance.new("UIStroke", Btn)
 S1.Color = Color3.fromRGB(0, 255, 0)
 S1.Thickness = 2
 
--- Khung Key
+-- ===================================================
+-- KHUNG KEY
+-- ===================================================
 local KF = Instance.new("Frame")
 KF.Name = "KeyFrame"
 KF.Parent = ScreenGui
@@ -627,17 +823,12 @@ IC1.CornerRadius = UDim.new(0, 8)
 local IBS = Instance.new("UIStroke", IB)
 IBS.Thickness = 2
 
--- Nút IB SAMM tự động mở Zalo
 IB.MouseButton1Click:Connect(function()
     if setclipboard then setclipboard("0355757211") end
     task.wait(2)
-    pcall(function()
-        game:GetService("GuiService"):OpenBrowserWindow("https://zalo.me/0355757211")
-    end)
+    pcall(function() game:GetService("GuiService"):OpenBrowserWindow("https://zalo.me/0355757211") end)
     task.wait(1)
-    pcall(function()
-        game:GetService("GuiService"):OpenBrowserWindow("https://zalo.me/0355757211")
-    end)
+    pcall(function() game:GetService("GuiService"):OpenBrowserWindow("https://zalo.me/0355757211") end)
 end)
 
 task.spawn(function()
@@ -651,7 +842,9 @@ task.spawn(function()
     end
 end)
 
--- Khung Chat
+-- ===================================================
+-- KHUNG CHAT BOT
+-- ===================================================
 local MF = Instance.new("Frame")
 MF.Name = "MainFrame"
 MF.Parent = ScreenGui
@@ -699,6 +892,7 @@ XB.TextScaled = true
 XB.Font = Enum.Font.Code
 local XC = Instance.new("UICorner", XB)
 XC.CornerRadius = UDim.new(0, 6)
+XB.MouseButton1Click:Connect(function() MF.Visible = false end)
 
 LogFrame = Instance.new("ScrollingFrame")
 LogFrame.Name = "LogFrame"
@@ -729,53 +923,21 @@ CB.ClearTextOnFocus = false
 local CC = Instance.new("UICorner", CB)
 CC.CornerRadius = UDim.new(0, 8)
 
-local FPSLabel = Instance.new("TextLabel")
-FPSLabel.Name = "FPSLabel"
-FPSLabel.Parent = ScreenGui
-FPSLabel.BackgroundTransparency = 1
-FPSLabel.Position = UDim2.new(1, -130, 0, 70)
-FPSLabel.Size = UDim2.new(0, 120, 0, 25)
-FPSLabel.Text = "FPS: 120"
-FPSLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-FPSLabel.TextScaled = true
-FPSLabel.Font = Enum.Font.GothamBold
-FPSLabel.Visible = false
-
-local AntiLabel = Instance.new("TextLabel")
-AntiLabel.Name = "AntiLabel"
-AntiLabel.Parent = ScreenGui
-AntiLabel.BackgroundTransparency = 1
-AntiLabel.Position = UDim2.new(0.5, -120, 0.78, 0)
-AntiLabel.Size = UDim2.new(0, 240, 0, 40)
-AntiLabel.Text = "ANTI-CHEAT 👑"
-AntiLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
-AntiLabel.TextScaled = true
-AntiLabel.Font = Enum.Font.GothamBold
-AntiLabel.Visible = false
-
 -- ===================================================
 -- SỰ KIỆN
 -- ===================================================
 
-XB.MouseButton1Click:Connect(function() MF.Visible = false end)
-
 KB.MouseButton1Click:Connect(function()
-    local key = KI.Text:upper():gsub("%s+", "")
-    local success, info = activateKey(key, nil)
-    
-    if success then
-        if keyExpireTime then
-            KS.Text = "✅ KEY " .. info.duration .. " - " .. info.device .. " thiết bị!"
-        else
-            KS.Text = "✅ KEY VĨNH VIỄN - " .. info.device .. " thiết bị!"
-        end
+    if parseKey(KI.Text:upper():gsub("%s+", "")) then
+        isActivated = true
+        KS.Text = "✅ KÍCH HOẠT THÀNH CÔNG!"
         KS.TextColor3 = Color3.fromRGB(0, 255, 0)
         task.wait(1)
         KF.Visible = false
         MF.Visible = true
-        botReply("Key hợp lệ!")
+        botReply("Key OK! Gõ /menu để mở menu, /steal để trộm trứng.")
     else
-        KS.Text = "❌ " .. info
+        KS.Text = "❌ KEY KHÔNG HỢP LỆ!"
         KS.TextColor3 = Color3.fromRGB(255, 0, 0)
     end
 end)
@@ -804,7 +966,13 @@ game:GetService("Players").LocalPlayer.CharacterAdded:Connect(function()
     end
 end)
 
--- Tự động đăng nhập nếu Key còn hạn
+task.wait(2)
+local char = LocalPlayer.Character
+if char and char:FindFirstChild("HumanoidRootPart") then
+    homePosition = char.HumanoidRootPart.Position
+end
+
+-- Tự động đăng nhập
 task.spawn(function()
     task.wait(3)
     local savedKey, savedExpire = loadKeyFromFile()
@@ -814,7 +982,6 @@ task.spawn(function()
             local isValid = false
             if info.durationSeconds == -1 then isValid = true
             elseif savedExpire and savedExpire > tick() then isValid = true end
-            
             if isValid then
                 local success = activateKey(savedKey, savedExpire)
                 if success then
@@ -830,11 +997,5 @@ task.spawn(function()
     end
 end)
 
-task.wait(2)
-local char = LocalPlayer.Character
-if char and char:FindFirstChild("HumanoidRootPart") then
-    homePosition = char.HumanoidRootPart.Position
-end
-
-botReply("Chào bạn! Gõ /help để xem lệnh.")
-print("=== BOT SAMM.NET ĐÃ KÍCH HOẠT ===")
+botReply("Chào bạn! Gõ /menu để mở menu, /steal để trộm trứng.")
+print("=== SAMM.NET ĐÃ KÍCH HOẠT ===")
